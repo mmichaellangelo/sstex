@@ -5,3 +5,5 @@ dist/
 *.exe
 *.spec
 src/__pycache__/
+assets/THIRD-PARTY-NOTICES.txt
+test.md

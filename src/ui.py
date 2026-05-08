@@ -69,7 +69,7 @@ tk.Label(root, textvariable=msg).pack()
 # 3rd party notices link
 label_link_thirdparty = tk.Label(root, text="Third Party Licenses", cursor='hand2', fg='blue')
 label_link_thirdparty.pack()
-label_link_thirdparty.bind('<Button-1>', lambda e: webbrowser.open(util.resource_path('THIRD-PARTY-NOTICES.txt')))
+label_link_thirdparty.bind('<Button-1>', lambda e: webbrowser.open(util.resource_path('assets/THIRD-PARTY-NOTICES.txt')))
 
 def start(conf: config.SsTeXConfig):
     global cfg

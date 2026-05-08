@@ -33,7 +33,8 @@ DisableProgramGroupPage=yes
 ; Remove the following line to run in administrative install mode (install for all users).
 PrivilegesRequired=lowest
 PrivilegesRequiredOverridesAllowed=dialog
-OutputDir=C:\Users\Michael\dev\gemss\setup
+OutputDir=.
+LicenseFile=..\LICENSE
 OutputBaseFilename=SsTeXSetup
 SolidCompression=yes
 WizardStyle=modern
@@ -54,8 +55,9 @@ Type: filesandordirs; Name: "{userappdata}\SsTeX"
 Name: "english"; MessagesFile: "compiler:Default.isl"
 
 [Files]
-Source: "C:\Users\Michael\dev\gemss\dist\{#MyAppExeName}"; DestDir: "{app}"; Flags: ignoreversion
+Source: "..\dist\{#MyAppExeName}"; DestDir: "{app}"; Flags: ignoreversion
 ; NOTE: Don't use "Flags: ignoreversion" on any shared system files
+; Source: "..\THIRD-PARTY-NOTICES.txt"; DestDir: "{app}"
 
 [Icons]
 Name: "{autoprograms}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"
