@@ -50,11 +50,6 @@ PromptImageToLatex = "You are a professional LaTeX OCR tool. Ignore any text tha
 # Load global program configuration
 cfg = config.SsTeXConfig.load()
 
-# Initialize Gemini client
-client = None
-if cfg.api_key != None:
-    client = genai.Client(api_key=cfg.api_key)
-
 # Global loading state
 is_loading = False
 
@@ -64,9 +59,9 @@ class MathResponse(BaseModel):
     latex_code: str
 
 # Exits the program
-def exit(icon: IconType, item: MenuItem):
+def exit(icon: IconType, gui: ui.SettingsGUI):
     icon.stop()
-    ui.root.destroy()
+    gui.root.destroy()
 
 def loading_animation(icon: IconType, item: MenuItem):
     """ 
@@ -78,7 +73,8 @@ def loading_animation(icon: IconType, item: MenuItem):
             icon.icon = img
             time.sleep(0.2)
             if not is_loading:
-                return
+                break
+    icon.icon = icon_idle
 
 def loading(icon: IconType, item: MenuItem):
     """
@@ -105,20 +101,18 @@ def action_latex(icon: IconType, item: MenuItem):
 
 # Grabs image data from clipboard
 def clipboard_to_latex(icon: IconType, item: MenuItem):
-    global client
-    if cfg.api_key == None:
+    if cfg.settings.api_key == '':
         icon.notify("No API key provided.")
         return
 
-    if client == None:
-        client = genai.Client(api_key=cfg.api_key)
+    client = genai.Client(api_key=cfg.settings.api_key)
 
     # Grab image from Windows clipboard
     img = ImageGrab.grabclipboard()
 
     # Check that clipboard has image data,
     # raise exception if not
-    if img is None and cfg.notify_err:
+    if img is None and cfg.settings.notify:
         icon.notify("Clipboard does not contain image data")
     
     else:
@@ -148,30 +142,28 @@ def clipboard_to_latex(icon: IconType, item: MenuItem):
             res: MathResponse = response.parsed
             if res.is_math:
                 pyperclip.copy(res.latex_code.strip())
-                if cfg.notify_success:
+                if cfg.settings.notify:
                     icon.notify("Equation copied to clipboard")
             else:
-                if cfg.notify_err:
+                if cfg.settings.notify:
                     icon.notify("No equation detected.")
         except ClientError as e:
-            print(e)
             idle(icon, item)
             icon.notify(e.message)
         except Exception as e:
-            print(e)
             idle(icon, item)
             icon.notify(type(e).__name__)
             
 
-def start_systray():
+def start_systray(gui: ui.SettingsGUI):
     """
     Starts system tray icon. Run on a separate thread 
     because Tkinter is a little crybaby that needs the main thread.
     """
     # Initialize pystray menu options
-    menu = Menu(MenuItem('Clipboard to LaTeX', action=action_latex, visible=False, default=True),
-                MenuItem('Settings', action=lambda: ui.root.event_generate("<<ToggleSettings>>", when="tail")),
-                MenuItem('Exit', action=exit, visible=True))
+    menu = Menu(MenuItem('Clipboard to LaTeX', action=action_latex, visible=True, default=cfg.settings.default_latex),
+                MenuItem('Settings', action=lambda: gui.show()),
+                MenuItem('Exit', action=lambda icon, item: exit(icon, gui), visible=True))
 
     # initialize pystray icon
     icon = Icon(name='test', icon=icon_idle, menu=menu)
@@ -182,8 +174,9 @@ def start_systray():
 
 # Main thread 
 if __name__ == '__main__':
-    # Start systray in separate thread
-    threading.Thread(target=start_systray, daemon=True).start()
+    gui = ui.SettingsGUI(config=cfg)
 
-    # Start GUI hidden
-    ui.start(cfg)
+    # Start systray in separate thread
+    threading.Thread(target=start_systray, args=(gui,), daemon=True).start()
+
+    gui.start()

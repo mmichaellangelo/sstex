@@ -22,19 +22,32 @@ It provides methods to load, save, and modify the system's configuration.
 import os
 import json
 from pathlib import Path
-from typing import Optional
-from pydantic import BaseModel, Field, PrivateAttr, ConfigDict
+from pydantic import BaseModel, Field, PrivateAttr
+from typing import Annotated
 from threading import Lock
+
+class ConfigSettings(BaseModel):
+    # Gemini API key
+    api_key: Annotated[str, Field(default='', description="Gemini API key"), 'HIDDEN']
+    # Allow notifications
+    notify: bool = Field(default=True, description="Enable notifications")
+    # Left-click icon to parse equation
+    default_latex: bool = Field(default=True, description="Left-click icon action (requires restart)")
 
 class SsTeXConfig(BaseModel):
     """ SsTex Program Configuration """
     
-    model_config = ConfigDict(arbitrary_types_allowed=True)
-    config_filepath: Path = Field(default_factory=lambda: SsTeXConfig.get_default_path(), exclude=True)
-    api_key: Optional[str] = None
-    notify_err: bool = True
-    notify_success: bool = True
+    # Allow pydantic arbitrary types
+    # model_config = ConfigDict(arbitrary_types_allowed=True)
+
+    # Mutex lock
     _lock: Lock = PrivateAttr(default_factory=lambda: Lock())
+
+    # Path to config file. Don't save in config file itself.
+    config_filepath: Path = Field(default_factory=lambda: SsTeXConfig.get_default_path(), exclude=True)
+    
+    # Configuration settings
+    settings: ConfigSettings = Field(default_factory=ConfigSettings)
 
     @staticmethod
     def get_default_path():
@@ -54,18 +67,16 @@ class SsTeXConfig(BaseModel):
         config file doesn't exist or can't be read.
         """
         path = cls.get_default_path()
-        if path.exists():
-            try:
-                with open(path, 'r') as f:
-                    data = json.load(f)
-                    return cls.model_validate(data)
-            except:
-                return cls()
+        try:
+            with open(path, 'r') as f:
+                data = json.load(f)
+                return cls.model_validate(data)
+        except:
+            new_cfg = cls()
+            new_cfg.save()
+            return new_cfg
         
-        return cls()
-
     def save(self):
         """ Saves current configuration to file. """
-        with self._lock:
-            with open(self.config_filepath, 'w') as f:
-                json.dump(self.model_dump(mode='json'), f, indent=4)
+        with self._lock, open(self.config_filepath, 'w') as f:
+            json.dump(self.model_dump(mode='json'), f, indent=4)

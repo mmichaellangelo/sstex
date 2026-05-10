@@ -14,6 +14,10 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+"""
+This file holds the Settings GUI, written with Tkinter.
+"""
+
 import tkinter as tk
 
 import config
@@ -22,70 +26,87 @@ import webbrowser
 from PIL import Image, ImageTk
 import util
 
-cfg: config.SsTeXConfig = None
-
 # Set app ID for custom taskbar icon
 myappid = 'mmichaellangelo.sstex.v1' 
 ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(myappid)
 
-root = tk.Tk()
-root.withdraw()
-root.title('SsTeX Settings')
-root.config(padx=20, pady=20)
-root.resizable(False, False)
-root.attributes('-toolwindow', True) # Only show 'X'
+class SettingsGUI:
+    root: tk.Tk
+    icon: Image
+    cfg: config.SsTeXConfig
 
-icon = Image.open(util.resource_path('assets/icon.ico'))
-icon = ImageTk.PhotoImage(icon)
-root.iconphoto(True, icon)
+    def _pack_settings(self):
+        for name, info in config.ConfigSettings.model_fields.items():
+            frame = tk.Frame(self.root)
+            frame.pack(fill='x', padx=5, pady=5)
+            label_text = info.description or name.replace("_", " ").title()
+            tk.Label(master=frame, text=label_text).pack(side='left')
+            current_value = getattr(self.cfg.settings, name)
 
-# String variable for dynamic error/success messages
-msg = tk.StringVar(root, value='')
+            if info.annotation is bool:
+                var = tk.BooleanVar(value=current_value)
+                widget = tk.Checkbutton(master=frame, variable=var)
 
-label_link_apikey = tk.Label(root, text="Get a Gemini API key", cursor='hand2', fg='blue')
-label_link_apikey.pack()
-label_link_apikey.bind('<Button-1>', lambda e: webbrowser.open('https://ai.google.dev/gemini-api/docs/api-key'))
+                def update(*args, n=name, v=var):
+                    setattr(self.cfg.settings, n, v.get())
+                    self.cfg.save()
 
-tk.Label(root, text="Gemini API Key:").pack()
-entry_apikey = tk.Entry(root, show='*')
-entry_apikey.pack()
+                var.trace_add('write', update)
+                widget.pack(side='right')
+            else:
+                var = tk.StringVar(value=current_value)
+                widget = tk.Entry(master=frame, textvariable=var)
+                if 'HIDDEN' in info.metadata:
+                    widget.config(show='*')
 
-def update_api_key():
-    api_key = entry_apikey.get()
-    api_key = api_key.strip()
-    if api_key == '':
-        msg.set("Invalid API Key.")
-        return
-    cfg.api_key = api_key
-    cfg.save()
-    entry_apikey.delete(0, 'end')
-    msg.set("API key updated.")
-    
+                def update(n=name, v=var):
+                    setattr(self.cfg.settings, n, v.get())
+                    self.cfg.save()
 
-button_update_apikey = tk.Button(root, text="Update API key", command=update_api_key)
-button_update_apikey.pack()
-tk.Label(root, textvariable=msg).pack()
+                widget.pack(side='left')
+                save_button = tk.Button(master=frame, text="Save", command=update)
+                save_button.pack(side='right')
 
-# 3rd party notices link
-label_link_thirdparty = tk.Label(root, text="Third Party Licenses", cursor='hand2', fg='blue')
-label_link_thirdparty.pack()
-label_link_thirdparty.bind('<Button-1>', lambda e: webbrowser.open(util.resource_path('assets/THIRD-PARTY-NOTICES.txt')))
+    def __init__(self, config: config.SsTeXConfig):
+        self.cfg = config
 
-def start(conf: config.SsTeXConfig):
-    global cfg
-    cfg = conf
-    root.bind("<<ToggleSettings>>", func=show)
-    root.mainloop()
+        # Initialize and configure window
+        self.root = tk.Tk()
+        self.root.withdraw()
+        self.root.title('SsTeX Settings')
+        self.root.config(padx=20, pady=20)
+        self.root.resizable(False, False)
+        self.root.attributes('-toolwindow', True) # Only show 'X'
+        self.icon = ImageTk.PhotoImage(Image.open(util.resource_path('assets/icon.ico')))
+        self.root.iconphoto(True, self.icon)
+        # Hide window when "X" is clicked
+        self.root.protocol("WM_DELETE_WINDOW", self.hide)
 
-def show(event=None):
-    root.deiconify()
-    root.lift()
-    root.focus_force()
+        # Pack Gemini API key link
+        label_link_apikey = tk.Label(self.root, text="Get a Gemini API key", cursor='hand2', fg='blue')
+        label_link_apikey.pack()
+        label_link_apikey.bind('<Button-1>', lambda e: webbrowser.open('https://ai.google.dev/gemini-api/docs/api-key'))
 
-def hide():
-    root.withdraw()
-    msg.set('')
-    entry_apikey.delete(0, 'end')
+        # Link and pack system settings to UI layout
+        self._pack_settings()
 
-# Hide window when "X" is clicked
-root.protocol("WM_DELETE_WINDOW", hide)
+        # Pack 3rd party notices link
+        label_link_thirdparty = tk.Label(self.root, text="Third Party Licenses", cursor='hand2', fg='blue')
+        label_link_thirdparty.pack()
+        label_link_thirdparty.bind('<Button-1>', lambda e: webbrowser.open(util.resource_path('assets/THIRD-PARTY-NOTICES.txt')))
+
+    def start(self):
+        """
+        Starts the GUI, hidden.  
+        Blocking -- run on main thread.
+        """
+        self.root.bind("<<ToggleSettings>>", func=self.show)
+        self.root.mainloop()
+
+    def show(self, event=None):
+        self.root.deiconify()
+        self.root.lift()
+        self.root.focus_force()
+
+    def hide(self):
+        self.root.withdraw()
